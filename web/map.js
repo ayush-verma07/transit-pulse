@@ -3,8 +3,7 @@
 
 const REFRESH_MS = 20000; // a bit slower than the backend's 15s poll cycle, deliberately not in lockstep with it
 const DEFAULT_MARKER_COLOR = "#6b7280"; // used when a route has no color set in routes.txt
-const API_BASE = "https://transit-pulse.onrender.com";
-
+// API_BASE already declared in script.js and map and script share global scopa
 const mapStatusEl = document.getElementById("map-status");
 
 // CARTO's "Positron" basemap style: free, vector tiles, explicitly built for
@@ -29,7 +28,7 @@ setInterval(refreshVehicles, REFRESH_MS);
 async function refreshVehicles() {
   let data;
   try {
-    const res = await fetch("${API_BASE}/vehicles/live");
+    const res = await fetch(`${API_BASE}/vehicles/live`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     data = await res.json();
   } catch (err) {
