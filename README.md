@@ -79,4 +79,4 @@ Project is now live!
    Note: the frontend's `API_BASE` constant in `script.js` and `map.js` is currently set to the deployed Render URL. To test against your local backend instead, temporarily change `API_BASE` to `http://localhost:PORT` (whatever port your Go server listens on).
 
 ### Live Demo
-A live version is deployed at [Live Project](https://transit-pulse-alpha.vercel.app/){:target="_blank"} — frontend on Vercel, backend on Render, database on Neon.
+A live version is deployed at [Live Project](https://transit-pulse-alpha.vercel.app/) — frontend on Vercel, backend on Render, database on Neon.
