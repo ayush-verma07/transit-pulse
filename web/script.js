@@ -6,6 +6,7 @@ const tableCaptionEl = document.getElementById("table-caption");
 const tableEl = document.getElementById("delay-table");
 const tableBody = tableEl.querySelector("tbody");
 const emptyStateEl = document.getElementById("empty-state");
+const wakeNoticeEl = document.getElementById("wake-notice");
 
 const SEVERE_DELAY_SECONDS = 300; // must match internal/api's severeDelayThreshold
 const HISTORY_WINDOW_DAYS = 7; // wide enough to accumulate a handful of weekday mornings, not just today
@@ -30,8 +31,9 @@ const nyPartsFormatter = new Intl.DateTimeFormat("en-US", {
 init();
 
 async function init() {
-  const stops = await fetchJSON("${API_BASE}/stops");
-  stopSelect.innerHTML = "";
+  const stops = await fetchJSON(`${API_BASE}/stops`);
+    wakeNoticeEl.classList.add("wake-notice--done");
+    stopSelect.innerHTML = "";
 
   if (!stops || stops.length === 0) {
     const opt = document.createElement("option");
@@ -204,37 +206,4 @@ async function fetchJSON(url) {
     console.error(err);
     return null;
   }
-}
-
-const wakeNoticeEl = document.getElementById("wake-notice");
-
-init();
-
-async function init() {
-  const stops = await fetchJSON("${API_BASE}/stops");
-  // The first successful response means the backend is awake — whether
-  // it took 200ms (already warm) or 45s (cold start), we only care that
-  // it's done now, so the notice can go away.
-  wakeNoticeEl.classList.add("wake-notice--done");
-
-  stopSelect.innerHTML = "";
-  if (!stops || stops.length === 0) {
-    const opt = document.createElement("option");
-    opt.textContent = "No stops with data yet";
-    stopSelect.appendChild(opt);
-    return;
-  }
-  const placeholder = document.createElement("option");
-  placeholder.value = "";
-  placeholder.textContent = "Select a stop…";
-  stopSelect.appendChild(placeholder);
-  for (const stop of stops) {
-    const opt = document.createElement("option");
-    opt.value = stop.stop_id;
-    opt.textContent = `${stop.name} (${stop.stop_id})`;
-    stopSelect.appendChild(opt);
-  }
-  stopSelect.addEventListener("change", () => {
-    if (stopSelect.value) loadStop(stopSelect.value);
-  });
 }
