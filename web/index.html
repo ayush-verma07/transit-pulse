@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Transit Pulse | Ayush Verma</title>
+  <link rel="stylesheet" href="/style.css" />
+  <!-- MapLibre GL JS: an open-source (BSD-licensed) fork of Mapbox GL JS from
+       before Mapbox's license change — no API key or billing account needed. -->
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" />
+  <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
+</head>
+<body>
+  <main>
+    <h1>Transit Pulse</h1>
+    <p class="subtitle">NYC Subway on-time performance, reconciled from live GTFS-Realtime data.</p>
+
+    <h2>Live Vehicle Positions</h2>
+    <p class="subtitle">Positions are approximate: MTA's subway feed reports each train's current/next stop, not GPS coordinates, so markers are placed at that stop's location.</p>
+    <p id="map-status" class="subtitle"></p>
+    <div id="map"></div>
+
+    <h2>Stop Lookup</h2>
+    <select id="stop-select">
+      <option value="">Loading stops…</option>
+    </select>
+
+    <section id="summary" class="hidden"></section>
+
+    <ul id="weekday-morning-summary" class="plain-language-list"></ul>
+
+    <section id="route-summaries" class="cards"></section>
+
+    <p id="table-caption" class="subtitle hidden"></p>
+    <table id="delay-table" class="hidden">
+      <thead>
+        <tr>
+          <th>Scheduled</th>
+          <th>Actual</th>
+          <th>Route</th>
+          <th>Delay</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <p id="empty-state" class="hidden">No recent delay records for this stop yet — the poller needs to observe a live trip at this stop before data shows up here.</p>
+
+    <section id="about">
+      <h2>About this project</h2>
+      <p>
+        Transit Pulse polls the MTA's live GTFS-Realtime subway feed every 15 seconds and
+        reconciles each vehicle update against the agency's published static schedule to work
+        out how early or late trains actually are running, stop by stop and route by route. This
+        page is a live view into that data: an approximate map of where trains currently are,
+        and a lookup tool for a stop's recent on-time performance.
+      </p>
+      <h3>Motivation</h3>
+      <p>I built this after a week alone in New York City, where I got completely lost more times than I'd like to admit. I would stand on a platform, staring at my phone, having no idea if the train I needed was two minutes away or twenty. NYC's transit system is massive and mostly a black box to riders: you get a scheduled time, but no sense of whether that time means anything. This project exists because I wanted an honest answer to a simple question: is my NYC train actually coming when it says it will?</p>
+    </section>
+
+    <footer class="site-footer">
+      Made by Ayush Verma 2026
+    </footer>
+  </main>
+
+  <script src="/map.js"></script>
+  <script src="/script.js"></script>
+</body>
+</html>

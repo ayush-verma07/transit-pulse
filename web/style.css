@@ -1,0 +1,166 @@
+:root {
+  color-scheme: light dark;
+  --bg: #ffffff;
+  --fg: #1a1a1a;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --card-bg: #f9fafb;
+  --late: #b91c1c;
+  --early: #15803d;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111827;
+    --fg: #f3f4f6;
+    --muted: #9ca3af;
+    --border: #374151;
+    --card-bg: #1f2937;
+    --late: #f87171;
+    --early: #4ade80;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+main {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 2rem 1rem 4rem;
+}
+
+h1 { margin-bottom: 0.25rem; }
+h2 { margin-top: 2.5rem; }
+h3 { margin-top: 1.5rem; margin-bottom: 0.5rem; }
+
+#about p { line-height: 1.6; }
+
+#map {
+  /* MapLibre requires an explicit height on its container — it sizes its
+     internal canvas to match, and a height of 0 (the default for a div)
+     renders nothing. */
+  height: 420px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.vehicle-marker {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+}
+
+/* MapLibre's popup has a hardcoded white background (maplibre-gl.css sets
+   background:#fff with no color), so it silently inherits body's `color`.
+   In dark mode that's a light color meant for a dark background — nearly
+   invisible on the popup's always-white background. Pin the popup's text
+   to a fixed dark color regardless of page theme, since its background
+   never changes with the theme either. */
+.maplibregl-popup-content {
+  color: #1a1a1a;
+}
+
+.subtitle { color: var(--muted); margin-top: 0; }
+
+label { display: block; margin: 1.5rem 0 0.5rem; font-weight: 600; }
+
+select {
+  width: 100%;
+  padding: 0.5rem;
+  font-size: 1rem;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.hidden { display: none; }
+
+#summary {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: var(--card-bg);
+  border-radius: 8px;
+  font-size: 1.05rem;
+}
+
+.plain-language-list {
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+}
+
+.plain-language-list li {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.plain-language-list li:last-child { border-bottom: none; }
+
+.plain-language-list .insufficient-data { color: var(--muted); font-style: italic; }
+
+#table-caption { margin-top: 1.5rem; margin-bottom: 0; }
+
+.cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.card {
+  flex: 1 1 160px;
+  padding: 0.75rem 1rem;
+  background: var(--card-bg);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.card .label { color: var(--muted); font-size: 0.85rem; }
+.card .value { font-size: 1.4rem; font-weight: 600; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1.5rem;
+  font-size: 0.95rem;
+}
+
+th, td {
+  text-align: left;
+  padding: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+th { color: var(--muted); font-weight: 600; }
+
+.delay-late { color: var(--late); font-weight: 600; }
+.delay-early { color: var(--early); font-weight: 600; }
+
+#empty-state { color: var(--muted); margin-top: 1.5rem; }
+
+.site-footer {
+  margin-top: 4rem;
+  padding: 1.5rem 0;
+  text-align: center;
+  font-size: 0.9rem;
+  color: #6b7280; /* subtle gray */
+  border-top: 1px solid #e5e7eb;
+  letter-spacing: 0.02em;
+  user-select: none;
+}
+
+.site-footer:hover {
+  color: #374151;
+  transition: color 0.2s ease;
+}
