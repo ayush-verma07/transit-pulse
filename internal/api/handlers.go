@@ -38,14 +38,30 @@ type Handlers struct {
 // for a given request regardless of registration order, so the literal
 // API paths below and the catch-all static file handler can coexist
 // without a separate URL prefix like "/api".
-func NewMux(h *Handlers, webDir string) *http.ServeMux {
+func NewMux(h *Handlers, webDir string) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /stops", h.listStops)
 	mux.HandleFunc("GET /stops/{stop_id}/delays", h.stopDelays)
 	mux.HandleFunc("GET /routes/{route_id}/summary", h.routeSummary)
 	mux.HandleFunc("GET /vehicles/live", h.liveVehicles)
 	mux.Handle("/", http.FileServer(http.Dir(webDir)))
-	return mux
+	return withCORS(mux)
+}
+
+// withCORS allows requests from any origin. TODO: restrict this once the
+// frontend's deployed origin is known — "allow all" is fine for local dev
+// and demos, not for a production deployment.
+func withCORS(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // listStops returns every stop that has at least one delay record, enriched

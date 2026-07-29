@@ -11,6 +11,7 @@ const SEVERE_DELAY_SECONDS = 300; // must match internal/api's severeDelayThresh
 const HISTORY_WINDOW_DAYS = 7; // wide enough to accumulate a handful of weekday mornings, not just today
 const MAX_TABLE_ROWS = 50; // the table is a recent-activity view, not a full export
 const MIN_WEEKDAY_MORNING_SAMPLES = 5; // below this, a percentage is more misleading than informative
+const API_BASE = "https://transit-pulse.onrender.com";
 
 // "Morning" is defined as 6:00am-9:59am, and always evaluated in the
 // transit agency's own timezone (America/New_York) — NOT the viewer's
@@ -29,7 +30,7 @@ const nyPartsFormatter = new Intl.DateTimeFormat("en-US", {
 init();
 
 async function init() {
-  const stops = await fetchJSON("/stops");
+  const stops = await fetchJSON("${API_BASE}/stops");
   stopSelect.innerHTML = "";
 
   if (!stops || stops.length === 0) {
@@ -58,7 +59,7 @@ async function init() {
 
 async function loadStop(stopId) {
   const since = new Date(Date.now() - HISTORY_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
-  const delays = await fetchJSON(`/stops/${encodeURIComponent(stopId)}/delays?since=${encodeURIComponent(since)}`);
+  const delays = await fetchJSON(`${API_BASE}/stops/${encodeURIComponent(stopId)}/delays?since=${encodeURIComponent(since)}`);
 
   if (!delays || delays.length === 0) {
     summaryEl.classList.add("hidden");
@@ -140,7 +141,7 @@ function renderWeekdayMorningSummary(delays) {
 async function renderRouteSummaries(delays) {
   const routeIds = [...new Set(delays.map((d) => d.route_id))];
   const summaries = await Promise.all(
-    routeIds.map((id) => fetchJSON(`/routes/${encodeURIComponent(id)}/summary`))
+    routeIds.map((id) => fetchJSON(`${API_BASE}/routes/${encodeURIComponent(id)}/summary`))
   );
 
   routeSummariesEl.innerHTML = "";
@@ -210,7 +211,7 @@ const wakeNoticeEl = document.getElementById("wake-notice");
 init();
 
 async function init() {
-  const stops = await fetchJSON("/stops");
+  const stops = await fetchJSON("${API_BASE}/stops");
   // The first successful response means the backend is awake — whether
   // it took 200ms (already warm) or 45s (cold start), we only care that
   // it's done now, so the notice can go away.
