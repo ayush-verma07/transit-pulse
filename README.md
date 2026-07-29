@@ -32,10 +32,51 @@ The core engineering challenge isn't fetching data — it's reconciliation:
 
 ## Status
 
-🚧 In active development. See [project board / milestones] for current progress.
+Project is now live!
 
 ## Running Locally
 
+### Prerequisites
+- [Go](https://go.dev/dl/) 1.2x or later
+- [Docker](https://www.docker.com/products/docker-desktop/) (for local Postgres)
+- `psql` (PostgreSQL client) — install via `brew install postgresql@16` on macOS
+
+### Setup
+
+1. Clone the repo:
 ```bash
-# instructions coming as the project develops
+   git clone https://github.com/ayush-verma07/transitpulse.git
+   cd transitpulse
 ```
+
+2. Start a local Postgres instance:
+```bash
+   docker-compose up -d
+```
+
+3. Run the database migrations:
+```bash
+   psql "postgres://transitpulse:transitpulse@localhost:5432/transitpulse?sslmode=disable" -f migrations/001_init.sql
+```
+
+4. Run the backend:
+```bash
+   go run cmd/tracker/main.go
+```
+   By default, this connects to the local Postgres instance from step 2. To point at a different database, set the `TRANSITPULSE_DATABASE_DSN` environment variable:
+```bash
+   TRANSITPULSE_DATABASE_DSN="postgres://user:pass@host:5432/dbname" go run cmd/tracker/main.go
+```
+
+5. Open the frontend:
+   Open `web/index.html` directly in your browser, or serve it locally:
+```bash
+   cd web
+   python3 -m http.server 8000
+```
+   Then visit `http://localhost:8000`.
+
+   Note: the frontend's `API_BASE` constant in `script.js` and `map.js` is currently set to the deployed Render URL. To test against your local backend instead, temporarily change `API_BASE` to `http://localhost:PORT` (whatever port your Go server listens on).
+
+### Live Demo
+A live version is deployed at [Live Project](https://transit-pulse-alpha.vercel.app/) — frontend on Vercel, backend on Render, database on Neon.
