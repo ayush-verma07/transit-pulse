@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib" // registers the "pgx" driver with database/sql; never referenced directly
@@ -84,13 +85,81 @@ func (s *Store) GetOrCreateScheduleVersion(ctx context.Context, v gtfs.ScheduleV
 	return id, nil
 }
 
-// SaveDelayRecord persists one reconciled delay, UPSERTing on the same
-// (trip_id, stop_id, scheduled_time) key that reconcile.DelayRecord.Key()
-// uses for in-memory dedup (see migrations/001_init.sql's UNIQUE
-// constraint). Reprocessing the same live prediction across repeated 15s
-// polls overwrites this row with the latest observed actual_time/delay
-// instead of inserting a duplicate.
-func (s *Store) SaveDelayRecord(ctx context.Context, scheduleVersionID int64, rec reconcile.DelayRecord) error {
+// SaveDelayRecords persists a batch of reconciled delays, preferring a
+// single multi-row INSERT — one statement for the whole batch instead of
+// one call per record cuts a poll cycle's network round-trips to Neon from
+// N down to 1 (see cmd/tracker/main.go's poll()).
+//
+// The batch INSERT is one SQL statement, so it is all-or-nothing: a single
+// row that fails (e.g. a constraint violation, or a connectivity blip mid-
+// request) fails every row in the same call. If that happens, this falls
+// back to inserting each record individually, so a transient failure on the
+// batch doesn't zero out an entire cycle's otherwise-good data — delay_records
+// is the tracker's source-of-truth data and losing a whole cycle to one bad
+// row is worse than the extra round-trips the fallback costs.
+//
+// Returns how many records actually ended up saved (via whichever path got
+// them there) and, if the batch attempt failed, that error — non-nil even
+// when the fallback went on to save every record, since the caller may
+// still want to know the batch path degraded that cycle.
+func (s *Store) SaveDelayRecords(ctx context.Context, scheduleVersionID int64, recs []reconcile.DelayRecord) (saved int, batchErr error) {
+	if len(recs) == 0 {
+		return 0, nil
+	}
+
+	if err := s.insertDelayRecordsBatch(ctx, scheduleVersionID, recs); err == nil {
+		return len(recs), nil
+	} else {
+		batchErr = err
+	}
+
+	for _, rec := range recs {
+		if err := s.insertDelayRecordOne(ctx, scheduleVersionID, rec); err == nil {
+			saved++
+		}
+	}
+	return saved, batchErr
+}
+
+// insertDelayRecordsBatch builds one multi-row INSERT covering every record
+// in recs, UPSERTing on the same (trip_id, stop_id, scheduled_time) key that
+// reconcile.DelayRecord.Key() uses for in-memory dedup (see
+// migrations/001_init.sql's UNIQUE constraint). Reprocessing the same live
+// prediction across repeated 15s polls overwrites its row with the latest
+// observed actual_time/delay instead of inserting a duplicate.
+func (s *Store) insertDelayRecordsBatch(ctx context.Context, scheduleVersionID int64, recs []reconcile.DelayRecord) error {
+	const cols = 7
+	placeholders := make([]string, len(recs))
+	args := make([]any, 0, len(recs)*cols)
+	for i, rec := range recs {
+		base := i * cols
+		placeholders[i] = fmt.Sprintf("($%d, $%d, $%d, $%d, $%d, $%d, $%d)",
+			base+1, base+2, base+3, base+4, base+5, base+6, base+7)
+		args = append(args, scheduleVersionID, rec.TripID, rec.RouteID, rec.StopID, rec.ScheduledTime, rec.ActualTime, rec.DelaySeconds)
+	}
+
+	query := fmt.Sprintf(`
+		INSERT INTO delay_records (schedule_version_id, trip_id, route_id, stop_id, scheduled_time, actual_time, delay_seconds)
+		VALUES %s
+		ON CONFLICT (trip_id, stop_id, scheduled_time)
+		DO UPDATE SET
+			actual_time = EXCLUDED.actual_time,
+			delay_seconds = EXCLUDED.delay_seconds,
+			schedule_version_id = EXCLUDED.schedule_version_id,
+			computed_at = now()`,
+		strings.Join(placeholders, ", "),
+	)
+
+	if _, err := s.db.ExecContext(ctx, query, args...); err != nil {
+		return fmt.Errorf("store: saving delay records batch: %w", err)
+	}
+	return nil
+}
+
+// insertDelayRecordOne is the row-by-row fallback path used when
+// insertDelayRecordsBatch fails outright — same UPSERT semantics, one record
+// at a time.
+func (s *Store) insertDelayRecordOne(ctx context.Context, scheduleVersionID int64, rec reconcile.DelayRecord) error {
 	_, err := s.db.ExecContext(ctx, `
 		INSERT INTO delay_records (schedule_version_id, trip_id, route_id, stop_id, scheduled_time, actual_time, delay_seconds)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)

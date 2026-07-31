@@ -160,7 +160,8 @@ func poll(parent context.Context, cfg config, db *store.Store, schedule *gtfs.Sc
 	// better than one that goes blank because an unrelated DB write hiccupped.
 	vehicles.Set(snapshot.VehiclePositions, snapshot.FetchedAt)
 
-	saved, skippedBadDate, skippedNoMatch := 0, 0, 0
+	skippedBadDate, skippedNoMatch := 0, 0
+	records := make([]reconcile.DelayRecord, 0, len(snapshot.TripUpdates))
 	for _, tu := range snapshot.TripUpdates {
 		serviceDate, err := reconcile.ParseServiceDate(tu.StartDate)
 		if err != nil {
@@ -173,11 +174,22 @@ func poll(parent context.Context, cfg config, db *store.Store, schedule *gtfs.Sc
 				skippedNoMatch++
 				continue
 			}
-			if err := db.SaveDelayRecord(ctx, scheduleVersionID, *rec); err != nil {
-				log.Printf("tracker: saving delay record failed: %v", err)
-				continue
-			}
-			saved++
+			records = append(records, *rec)
+		}
+	}
+
+	// One batched call instead of one per record: reconciliation itself
+	// (the loop above) is pure in-memory work, so nothing needs a DB
+	// round-trip until every record for this cycle is already collected.
+	// SaveDelayRecords falls back to row-by-row inserts internally if the
+	// batch fails outright, so `saved` reflects records actually persisted
+	// either way — it's not simply len(records) whenever err is non-nil.
+	saved := 0
+	if len(records) > 0 {
+		var err error
+		saved, err = db.SaveDelayRecords(ctx, scheduleVersionID, records)
+		if err != nil {
+			log.Printf("tracker: delay records batch insert failed (%v); row-by-row fallback saved %d/%d", err, saved, len(records))
 		}
 	}
 
@@ -185,9 +197,9 @@ func poll(parent context.Context, cfg config, db *store.Store, schedule *gtfs.Sc
 		len(snapshot.TripUpdates), saved, skippedBadDate, skippedNoMatch)
 
 	// A fresh context rooted in parent, not the (likely near-expired) ctx
-	// above: ctx's 10s budget is shared with the feed fetch and every
-	// SaveDelayRecord call in the loop, so by this point in the cycle it may
-	// already be exhausted regardless of how fast this one insert would run.
+	// above: ctx's budget is shared with the feed fetch and the delay-records
+	// batch insert, so by this point in the cycle it may already be
+	// exhausted regardless of how fast this one insert would run.
 	statsCtx, statsCancel := context.WithTimeout(parent, 5*time.Second)
 	defer statsCancel()
 	// Recorded with the same fetch timestamp used for the live-vehicle cache
