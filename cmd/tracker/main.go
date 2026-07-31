@@ -184,10 +184,16 @@ func poll(parent context.Context, cfg config, db *store.Store, schedule *gtfs.Sc
 	log.Printf("tracker: poll complete — %d trip updates, %d delays saved, %d skipped (bad date), %d skipped (no match within tolerance)",
 		len(snapshot.TripUpdates), saved, skippedBadDate, skippedNoMatch)
 
-	// Recorded with the same fetch timestamp used for the raw snapshot and
-	// live-vehicle cache above, so poll_stats rows line up with the other
-	// per-cycle data instead of drifting from wall-clock time.Now() calls.
-	if err := db.SavePollStats(ctx, snapshot.FetchedAt, len(snapshot.TripUpdates), saved, skippedBadDate, skippedNoMatch); err != nil {
+	// A fresh context rooted in parent, not the (likely near-expired) ctx
+	// above: ctx's 10s budget is shared with the feed fetch and every
+	// SaveDelayRecord call in the loop, so by this point in the cycle it may
+	// already be exhausted regardless of how fast this one insert would run.
+	statsCtx, statsCancel := context.WithTimeout(parent, 5*time.Second)
+	defer statsCancel()
+	// Recorded with the same fetch timestamp used for the live-vehicle cache
+	// above, so poll_stats rows line up with the other per-cycle data instead
+	// of drifting from wall-clock time.Now() calls.
+	if err := db.SavePollStats(statsCtx, snapshot.FetchedAt, len(snapshot.TripUpdates), saved, skippedBadDate, skippedNoMatch); err != nil {
 		log.Printf("tracker: saving poll stats failed: %v", err)
 	}
 }
