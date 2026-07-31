@@ -155,31 +155,22 @@ func poll(parent context.Context, cfg config, db *store.Store, schedule *gtfs.Sc
 		return
 	}
 
-	// Update the live-vehicle cache unconditionally, even if the raw-archive
-	// or reconcile steps below fail — a live map showing slightly-stale
-	// positions is far better than one that goes blank because an unrelated
-	// DB write hiccupped.
+	// Update the live-vehicle cache unconditionally, even if the reconcile
+	// steps below fail — a live map showing slightly-stale positions is far
+	// better than one that goes blank because an unrelated DB write hiccupped.
 	vehicles.Set(snapshot.VehiclePositions, snapshot.FetchedAt)
 
-	// Archive raw bytes BEFORE reconciling, so a bug found later in
-	// internal/reconcile can be fixed and every delay record recomputed
-	// from this untouched copy (see internal/store/postgres.go).
-	if err := db.SaveRawSnapshot(ctx, snapshot.FeedURL, snapshot.FetchedAt, snapshot.RawPayload); err != nil {
-		log.Printf("tracker: archiving raw snapshot failed: %v", err)
-		return
-	}
-
-	saved, skipped := 0, 0
+	saved, skippedBadDate, skippedNoMatch := 0, 0, 0
 	for _, tu := range snapshot.TripUpdates {
 		serviceDate, err := reconcile.ParseServiceDate(tu.StartDate)
 		if err != nil {
-			skipped++
+			skippedBadDate++
 			continue
 		}
 		for _, st := range tu.StopTimes {
 			rec, err := reconcile.Reconcile(schedule, serviceDate, tu, st)
 			if err != nil {
-				skipped++
+				skippedNoMatch++
 				continue
 			}
 			if err := db.SaveDelayRecord(ctx, scheduleVersionID, *rec); err != nil {
@@ -190,6 +181,13 @@ func poll(parent context.Context, cfg config, db *store.Store, schedule *gtfs.Sc
 		}
 	}
 
-	log.Printf("tracker: poll complete — %d trip updates, %d delays saved, %d unmatched/skipped",
-		len(snapshot.TripUpdates), saved, skipped)
+	log.Printf("tracker: poll complete — %d trip updates, %d delays saved, %d skipped (bad date), %d skipped (no match within tolerance)",
+		len(snapshot.TripUpdates), saved, skippedBadDate, skippedNoMatch)
+
+	// Recorded with the same fetch timestamp used for the raw snapshot and
+	// live-vehicle cache above, so poll_stats rows line up with the other
+	// per-cycle data instead of drifting from wall-clock time.Now() calls.
+	if err := db.SavePollStats(ctx, snapshot.FetchedAt, len(snapshot.TripUpdates), saved, skippedBadDate, skippedNoMatch); err != nil {
+		log.Printf("tracker: saving poll stats failed: %v", err)
+	}
 }

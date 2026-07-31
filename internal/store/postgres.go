@@ -108,6 +108,23 @@ func (s *Store) SaveDelayRecord(ctx context.Context, scheduleVersionID int64, re
 	return nil
 }
 
+// SavePollStats records the outcome of one poll cycle — how many trip
+// updates came in, how many turned into saved delay records, and how many
+// were skipped, broken down by reason. This is what lets match-rate trends
+// be queried directly from Postgres instead of parsed out of Render's log
+// output.
+func (s *Store) SavePollStats(ctx context.Context, polledAt time.Time, tripUpdatesSeen, delaysSaved, skippedBadDate, skippedNoMatch int) error {
+	_, err := s.db.ExecContext(ctx,
+		`INSERT INTO poll_stats (polled_at, trip_updates_seen, delays_saved, skipped_bad_date, skipped_no_match)
+		VALUES ($1, $2, $3, $4, $5)`,
+		polledAt, tripUpdatesSeen, delaysSaved, skippedBadDate, skippedNoMatch,
+	)
+	if err != nil {
+		return fmt.Errorf("store: saving poll stats: %w", err)
+	}
+	return nil
+}
+
 // GetDelaysByStop returns delay records for a stop, scheduled at or after
 // since, ordered chronologically.
 func (s *Store) GetDelaysByStop(ctx context.Context, stopID string, since time.Time) ([]reconcile.DelayRecord, error) {

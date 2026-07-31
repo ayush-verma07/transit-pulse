@@ -57,6 +57,7 @@ Project is now live!
 3. Run the database migrations:
 ```bash
    psql "postgres://transitpulse:transitpulse@localhost:5432/transitpulse?sslmode=disable" -f migrations/001_init.sql
+   psql "postgres://transitpulse:transitpulse@localhost:5432/transitpulse?sslmode=disable" -f migrations/002_poll_stats.sql
 ```
 
 4. Run the backend:
